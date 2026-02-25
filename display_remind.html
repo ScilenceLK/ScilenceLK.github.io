@@ -2,27 +2,88 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>墨水屏助手</title>
-    <script src="//cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨水屏待办配置</title>
+    <!-- 使用 LeanCloud 存储 SDK (国际版 CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 0 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #07c; color: white; border: none; font-size: 16px; cursor: pointer; }
+        button:hover { background: #005fa3; }
+    </style>
 </head>
 <body>
-    <h2>提醒事项设置</h2>
-    <input id="todo1" placeholder="事项 1">
-    <input id="todo2" placeholder="事项 2">
+    <h2>墨水屏待办事项设置</h2>
+    <p>配置后，墨水屏设备将自动显示以下事项</p>
+    <input id="todo1" type="text" placeholder="事项 1 (例如：买牛奶)">
+    <input id="todo2" type="text" placeholder="事项 2 (例如：取快递)">
     <button onclick="saveData()">保存并同步到屏幕</button>
 
     <script>
-        // 初始化 LeanCloud (去官网注册后免费获取 ID)
-        AV.init({ appId: "你的AppID", appKey: "你的AppKey", serverURL: "你的域名" });
-        
+        // ========== 请替换为你的 LeanCloud 真实信息 ==========
+        const APP_ID = '你的AppID';
+        const APP_KEY = '你的AppKey';
+        const SERVER_URL = '你的ServerURL'; // 国际版格式：https://你的应用ID.avosapps.com
+        // =================================================
+
+        // 初始化 LeanCloud
+        AV.init({ appId: APP_ID, appKey: APP_KEY, serverURL: SERVER_URL });
+
+        // 定义一个固定的配置ID（用于区分不同设备，如果你只有一个墨水屏，固定即可）
+        const CONFIG_ID = 'esp32_display_1';
+
+        // 页面加载时读取已有配置并填充输入框
+        window.addEventListener('load', async () => {
+            const query = new AV.Query('EpaperConfig');
+            query.equalTo('configId', CONFIG_ID);
+            try {
+                const result = await query.first(); // 获取第一条匹配的数据
+                if (result) {
+                    const content = result.get('content') || [];
+                    document.getElementById('todo1').value = content[0] || '';
+                    document.getElementById('todo2').value = content[1] || '';
+                } else {
+                    console.log('暂无配置，请输入事项后保存');
+                }
+            } catch (error) {
+                console.error('读取失败', error);
+                alert('读取失败，请检查网络或配置');
+            }
+        });
+
+        // 保存数据（若存在则更新，否则新建）
         async function saveData() {
-            const Todo = AV.Object.extend('EpaperConfig');
-            const todo = new Todo();
-            // 这里建议固定一个 Object ID，每次只更新它
-            todo.set('id', '1'); 
-            todo.set('content', [document.getElementById('todo1').value, document.getElementById('todo2').value]);
-            await todo.save();
-            alert("同步成功！");
+            const todo1 = document.getElementById('todo1').value.trim();
+            const todo2 = document.getElementById('todo2').value.trim();
+            if (!todo1 && !todo2) {
+                alert('至少输入一个事项');
+                return;
+            }
+
+            const query = new AV.Query('EpaperConfig');
+            query.equalTo('configId', CONFIG_ID);
+            let configObject;
+            const result = await query.first();
+            if (result) {
+                configObject = result; // 存在则更新
+            } else {
+                const ConfigClass = AV.Object.extend('EpaperConfig');
+                configObject = new ConfigClass();
+                configObject.set('configId', CONFIG_ID); // 设置唯一标识
+            }
+            // 存储为数组，方便 ESP32 解析
+            configObject.set('content', [todo1, todo2]);
+            // 可选：记录更新时间
+            configObject.set('updatedAt', new Date().toISOString());
+
+            try {
+                await configObject.save();
+                alert('保存成功！设备将在下次刷新时更新显示');
+            } catch (error) {
+                console.error('保存失败', error);
+                alert('保存失败，请重试');
+            }
         }
     </script>
 </body>
