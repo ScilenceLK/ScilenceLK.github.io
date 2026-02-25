@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>墨水屏 · 智能待办</title>
+    <title>墨水屏 · 多设备待办</title>
     <!-- LeanCloud 存储 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
@@ -22,7 +22,7 @@
             padding: 1.5rem 1rem 2rem;
         }
         .container {
-            max-width: 680px;
+            max-width: 720px;
             width: 100%;
         }
         h1 {
@@ -39,16 +39,87 @@
             border-left: 4px solid #94a3b8;
             padding-left: 1rem;
         }
-        /* 卡片通用样式 */
         .card {
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(4px);
             background: #ffffffdd;
+            backdrop-filter: blur(4px);
             border-radius: 28px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.02);
             padding: 1.5rem 1.5rem;
             margin-bottom: 1.8rem;
             border: 1px solid #ffffff50;
+        }
+        /* 设备ID行 */
+        .device-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.5rem;
+        }
+        .device-input-group {
+            flex: 2 1 250px;
+            position: relative;
+        }
+        .device-input-group input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 40px;
+            font-size: 1rem;
+            background: white;
+        }
+        .device-input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px #bfdbfe;
+        }
+        .history-dropdown {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .history-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 10;
+            display: none;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .history-list.show {
+            display: block;
+        }
+        .history-item {
+            padding: 0.7rem 1.2rem;
+            cursor: pointer;
+            transition: background 0.1s;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .history-item:hover {
+            background: #f1f5f9;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .btn-icon {
+            background: #e9eef3;
+            border: none;
+            border-radius: 40px;
+            padding: 0.8rem 1.5rem;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-icon:hover {
+            background: #cbd5e1;
         }
         /* 表单区域 */
         .form-row {
@@ -56,6 +127,7 @@
             flex-wrap: wrap;
             gap: 0.8rem;
             align-items: flex-end;
+            margin-top: 1rem;
         }
         .form-group {
             flex: 1 1 160px;
@@ -82,9 +154,9 @@
         }
         .form-group input:focus,
         .form-group select:focus {
-            outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 4px #bfdbfe;
+            outline: none;
         }
         .priority-selector {
             display: flex;
@@ -116,7 +188,6 @@
         .priority-selector label[for="pri-low"] { color: #16a34a; }
         .priority-selector label[for="pri-medium"] { color: #ca8a04; }
         .priority-selector label[for="pri-high"] { color: #dc2626; }
-
         .btn-add {
             background: #3b82f6;
             color: white;
@@ -195,6 +266,7 @@
             font-size: 0.8rem;
             color: #64748b;
             align-items: center;
+            flex-wrap: wrap;
         }
         .todo-meta span {
             display: flex;
@@ -215,7 +287,6 @@
             background: #fee2e2;
             color: #b91c1c;
         }
-        /* 底部按钮组 */
         .actions {
             display: flex;
             gap: 1rem;
@@ -250,7 +321,6 @@
             background: #1e293b;
             transform: scale(0.98);
         }
-        /* Toast 样式 */
         #toast {
             position: fixed;
             bottom: 2rem;
@@ -275,7 +345,6 @@
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
-        /* 空状态 */
         .empty-state {
             text-align: center;
             color: #94a3b8;
@@ -291,30 +360,42 @@
 </head>
 <body>
     <div class="container">
-        <h1>墨水屏·待办</h1>
-        <div class="subhead">为你的桌面墨水屏设置提醒</div>
+        <h1>墨水屏·多设备</h1>
+        <div class="subhead">为每个墨水屏独立设置待办事项</div>
+
+        <!-- 卡片：设备ID与历史 -->
+        <div class="card" style="padding: 1.2rem 1.5rem;">
+            <div class="device-row">
+                <div style="font-weight: 600; color:#1e293b; min-width: 60px;">设备ID</div>
+                <div class="device-input-group" id="deviceInputGroup">
+                    <input type="text" id="deviceId" placeholder="例如 esp32_1" value="esp32_1" autocomplete="off">
+                    <!-- 历史下拉列表 -->
+                    <div class="history-list" id="historyList"></div>
+                </div>
+                <button class="btn-icon" id="showHistoryBtn" type="button">▼ 历史</button>
+                <button class="btn-icon" id="clearHistoryBtn" type="button">清除历史</button>
+            </div>
+            <div style="font-size:0.85rem; color:#64748b; margin-top:0.5rem;">
+                输入新ID后保存会自动加入历史，点击历史项快速切换
+            </div>
+        </div>
 
         <!-- 卡片：添加新事项 -->
         <div class="card">
             <div class="form-row">
-                <!-- 日期 -->
                 <div class="form-group">
                     <label>📅 日期</label>
-                    <input type="date" id="eventDate" value="">
+                    <input type="date" id="eventDate">
                 </div>
-                <!-- 时间 -->
                 <div class="form-group">
                     <label>⏰ 时间</label>
                     <input type="time" id="eventTime" value="09:00">
                 </div>
-                <!-- 事项描述 -->
                 <div class="form-group" style="flex: 2 1 200px;">
                     <label>📝 描述</label>
                     <input type="text" id="eventDesc" placeholder="写点什么..." maxlength="40">
                 </div>
             </div>
-
-            <!-- 优先级（行内） -->
             <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.2rem; flex-wrap: wrap;">
                 <div style="font-size:0.85rem; color:#475569;">优先级</div>
                 <div class="priority-selector" id="priorityGroup">
@@ -337,9 +418,7 @@
             </div>
             <div id="todoList"></div>
             <div id="emptyMsg" class="empty-state">暂无事项，添加一条吧 ✨</div>
-
             <hr>
-            <!-- 操作按钮 -->
             <div class="actions">
                 <button class="btn-secondary" id="clearBtn">清空所有</button>
                 <button class="btn-primary" id="saveBtn">保存到云端</button>
@@ -347,7 +426,6 @@
         </div>
     </div>
 
-    <!-- Toast 容器 -->
     <div id="toast"></div>
 
     <script>
@@ -357,13 +435,17 @@
         const SERVER_URL = '你的ServerURL';   // 例如 https://your-app-id.avosapps.com
         AV.init({ appId: APP_ID, appKey: APP_KEY, serverURL: SERVER_URL });
 
-        // 固定配置ID (用于绑定此墨水屏设备)
-        const CONFIG_ID = 'esp32_display_1';
+        // ---------- 全局变量 ----------
+        let events = [];                // 当前显示的待办数组
+        let currentDeviceId = 'esp32_1'; // 当前选中的设备ID
+        const HISTORY_KEY = 'deviceHistory'; // localStorage 存储键
+        const MAX_HISTORY = 8;           // 最多保存历史记录数
 
-        // ---------- 全局待办数组 ----------
-        let events = [];  // 每个元素: { id, date, time, desc, priority }
-
-        // ---------- DOM 元素 ----------
+        // DOM 元素
+        const deviceIdInput = document.getElementById('deviceId');
+        const showHistoryBtn = document.getElementById('showHistoryBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const historyListDiv = document.getElementById('historyList');
         const dateInput = document.getElementById('eventDate');
         const timeInput = document.getElementById('eventTime');
         const descInput = document.getElementById('eventDesc');
@@ -386,17 +468,122 @@
         }
         setDefaultDate();
 
-        // ---------- 辅助函数 ----------
+        // ---------- 历史记录管理 ----------
+        function getHistory() {
+            const hist = localStorage.getItem(HISTORY_KEY);
+            return hist ? JSON.parse(hist) : [];
+        }
+
+        function saveHistory(history) {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+
+        // 添加一个设备ID到历史（去重，保持最近使用）
+        function addToHistory(deviceId) {
+            if (!deviceId) return;
+            let history = getHistory();
+            // 移除已存在的相同ID
+            history = history.filter(id => id !== deviceId);
+            // 插入到最前面
+            history.unshift(deviceId);
+            // 限制长度
+            if (history.length > MAX_HISTORY) {
+                history = history.slice(0, MAX_HISTORY);
+            }
+            saveHistory(history);
+            renderHistoryList();
+        }
+
+        // 清除所有历史
+        function clearHistory() {
+            localStorage.removeItem(HISTORY_KEY);
+            renderHistoryList();
+            showToast('历史记录已清除', 'info');
+        }
+
+        // 渲染历史下拉列表
+        function renderHistoryList() {
+            const history = getHistory();
+            if (history.length === 0) {
+                historyListDiv.innerHTML = '<div class="history-item" style="color:#94a3b8;">暂无历史</div>';
+                return;
+            }
+            let html = '';
+            history.forEach(id => {
+                html += `<div class="history-item" data-deviceid="${id}">${id}</div>`;
+            });
+            historyListDiv.innerHTML = html;
+        }
+
+        // 显示/隐藏历史下拉
+        function toggleHistoryList(show) {
+            if (show) {
+                historyListDiv.classList.add('show');
+            } else {
+                historyListDiv.classList.remove('show');
+            }
+        }
+
+        // 点击页面其他区域隐藏历史列表
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#deviceInputGroup') && !e.target.closest('#showHistoryBtn')) {
+                toggleHistoryList(false);
+            }
+        });
+
+        // 显示历史列表按钮
+        showHistoryBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderHistoryList(); // 确保最新
+            toggleHistoryList(true);
+        });
+
+        // 历史项点击事件（委托）
+        historyListDiv.addEventListener('click', (e) => {
+            const item = e.target.closest('.history-item');
+            if (!item) return;
+            const deviceId = item.dataset.deviceid;
+            if (deviceId) {
+                deviceIdInput.value = deviceId;
+                toggleHistoryList(false);
+                // 切换到该设备
+                switchToDevice(deviceId);
+            }
+        });
+
+        // 清除历史按钮
+        clearHistoryBtn.addEventListener('click', () => {
+            clearHistory();
+        });
+
+        // ---------- 核心功能 ----------
         function getSelectedPriority() {
             for (let radio of priorityRadios) {
                 if (radio.checked) return radio.value;
             }
-            return '中'; // 默认
+            return '中';
         }
 
-        // 生成简单临时ID
         function generateId() {
             return Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/[&<>"]/g, function(m) {
+                if(m === '&') return '&amp;';
+                if(m === '<') return '&lt;';
+                if(m === '>') return '&gt;';
+                if(m === '"') return '&quot;';
+                return m;
+            });
+        }
+
+        function showToast(message, type = 'success', duration = 2000) {
+            toastDiv.innerText = message;
+            toastDiv.classList.add('show');
+            setTimeout(() => {
+                toastDiv.classList.remove('show');
+            }, duration);
         }
 
         // 渲染待办列表
@@ -409,7 +596,7 @@
             }
             emptyMsg.style.display = 'none';
             let html = '';
-            events.forEach((ev, index) => {
+            events.forEach((ev) => {
                 const priClass = ev.priority === '低' ? 'pri-low' : (ev.priority === '中' ? 'pri-medium' : 'pri-high');
                 html += `
                     <div class="todo-item" data-id="${ev.id}">
@@ -430,31 +617,13 @@
             itemCountSpan.innerText = events.length;
         }
 
-        // 简单转义防止XSS
-        function escapeHtml(unsafe) {
-            return unsafe.replace(/[&<>"]/g, function(m) {
-                if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; if(m === '"') return '&quot;';
-                return m;
-            });
-        }
-
-        // 删除事件 (通过全局函数调用)
         window.deleteEvent = function(id) {
             events = events.filter(ev => ev.id !== id);
             renderList();
             showToast('事项已删除', 'info');
         };
 
-        // 显示 Toast
-        function showToast(message, type = 'success', duration = 2000) {
-            toastDiv.innerText = message;
-            toastDiv.classList.add('show');
-            setTimeout(() => {
-                toastDiv.classList.remove('show');
-            }, duration);
-        }
-
-        // ---------- 添加事项 ----------
+        // 添加事项
         function addEvent() {
             const date = dateInput.value;
             const time = timeInput.value;
@@ -473,16 +642,14 @@
             };
             events.push(newEvent);
             renderList();
-            // 清空描述框（保留日期时间默认值）
             descInput.value = '';
-            // 重置优先级到中
             document.getElementById('pri-medium').checked = true;
             showToast('已添加到列表');
         }
-
         addBtn.addEventListener('click', addEvent);
+        descInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addEvent(); });
 
-        // ---------- 清空所有 ----------
+        // 清空所有
         clearBtn.addEventListener('click', () => {
             if (events.length === 0) return;
             if (confirm('确定清空所有待办事项吗？')) {
@@ -492,32 +659,44 @@
             }
         });
 
-        // ---------- 保存到 LeanCloud ----------
+        // ---------- 切换设备 ----------
+        async function switchToDevice(deviceId) {
+            if (!deviceId) return;
+            currentDeviceId = deviceId;
+            // 从云端加载该设备的数据
+            await loadFromCloud(deviceId);
+            // 将设备ID加入历史（但不要重复添加当前输入框中的，因为可能来自历史点击）
+            addToHistory(deviceId);
+        }
+
+        // 保存到云端
         async function saveToCloud() {
+            const deviceId = currentDeviceId;
+            if (!deviceId) {
+                showToast('请先填写设备ID', 'warn');
+                return;
+            }
             if (events.length === 0) {
                 showToast('还没有任何事项可保存', 'warn');
                 return;
             }
             try {
                 showToast('保存中...', 'info', 1000);
-                // 查找或创建配置对象
                 const query = new AV.Query('EpaperConfig');
-                query.equalTo('configId', CONFIG_ID);
+                query.equalTo('deviceId', deviceId);
                 let configObj = await query.first();
-
                 if (configObj) {
-                    // 更新
                     configObj.set('events', events);
                 } else {
                     const ConfigClass = AV.Object.extend('EpaperConfig');
                     configObj = new ConfigClass();
-                    configObj.set('configId', CONFIG_ID);
+                    configObj.set('deviceId', deviceId);
                     configObj.set('events', events);
                 }
-                // 可选：同时保留旧字段以备兼容
-                // 但新 ESP32 代码应优先读取 events 字段
                 await configObj.save();
-                showToast('✅ 已同步到云端');
+                // 保存成功后将此设备ID加入历史
+                addToHistory(deviceId);
+                showToast(`✅ 已同步到设备 ${deviceId}`);
             } catch (error) {
                 console.error('保存失败', error);
                 showToast('❌ 保存失败，请检查网络', 'error');
@@ -525,44 +704,45 @@
         }
         saveBtn.addEventListener('click', saveToCloud);
 
-        // ---------- 加载已有数据 ----------
-        async function loadFromCloud() {
+        // 从云端加载指定设备的数据
+        async function loadFromCloud(deviceId) {
+            if (!deviceId) return;
             try {
                 const query = new AV.Query('EpaperConfig');
-                query.equalTo('configId', CONFIG_ID);
+                query.equalTo('deviceId', deviceId);
                 const result = await query.first();
-                if (result) {
-                    const savedEvents = result.get('events');
-                    if (Array.isArray(savedEvents) && savedEvents.length > 0) {
-                        // 确保每个事件都有id（旧数据可能没有）
-                        events = savedEvents.map(ev => ({
-                            ...ev,
-                            id: ev.id || generateId()
-                        }));
-                        renderList();
-                        showToast('已加载云端配置', 'info');
-                    } else {
-                        // 兼容旧版 content 字段？这里不处理，保持空列表
-                        events = [];
-                        renderList();
-                    }
+                if (result && result.get('events')) {
+                    events = result.get('events').map(ev => ({
+                        ...ev,
+                        id: ev.id || generateId()
+                    }));
+                    showToast(`已加载设备 ${deviceId} 的配置`, 'info');
                 } else {
-                    // 无数据，保持空
                     events = [];
-                    renderList();
+                    showToast(`设备 ${deviceId} 无数据，开始新建`, 'info');
                 }
+                renderList();
             } catch (error) {
                 console.error('加载失败', error);
                 showToast('加载云端数据失败', 'error');
             }
         }
 
-        // 页面加载时读取
-        window.addEventListener('load', loadFromCloud);
+        // 监听设备ID输入框变化（回车或失去焦点时切换）
+        deviceIdInput.addEventListener('change', () => {
+            const newId = deviceIdInput.value.trim();
+            if (newId && newId !== currentDeviceId) {
+                switchToDevice(newId);
+            }
+        });
 
-        // 按回车快速添加（可选）
-        descInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') addEvent();
+        // 页面初始化
+        window.addEventListener('load', () => {
+            const initialId = deviceIdInput.value.trim() || 'esp32_1';
+            deviceIdInput.value = initialId;
+            currentDeviceId = initialId;
+            loadFromCloud(initialId);
+            renderHistoryList();
         });
     </script>
 </body>
