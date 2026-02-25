@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>墨水屏助手</title>
+    <script src="//cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+</head>
+<body>
+    <h2>提醒事项设置</h2>
+    <input id="todo1" placeholder="事项 1">
+    <input id="todo2" placeholder="事项 2">
+    <button onclick="saveData()">保存并同步到屏幕</button>
+
+    <script>
+        // 初始化 LeanCloud (去官网注册后免费获取 ID)
+        AV.init({ appId: "你的AppID", appKey: "你的AppKey", serverURL: "你的域名" });
+        
+        async function saveData() {
+            const Todo = AV.Object.extend('EpaperConfig');
+            const todo = new Todo();
+            // 这里建议固定一个 Object ID，每次只更新它
+            todo.set('id', '1'); 
+            todo.set('content', [document.getElementById('todo1').value, document.getElementById('todo2').value]);
+            await todo.save();
+            alert("同步成功！");
+        }
+    </script>
+</body>
+</html>
