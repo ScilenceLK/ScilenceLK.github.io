@@ -672,47 +672,44 @@
         // 保存到云端
         async function saveToCloud() {
             const deviceId = currentDeviceId;
-            if (!deviceId) {
-                showToast('请先填写设备ID', 'warn');
-                return;
-            }
-            if (events.length === 0) {
-                showToast('还没有任何事项可保存', 'warn');
-                return;
-            }
+            if (!deviceId) { showToast('请先填写设备ID', 'warn'); return; }
+            if (events.length === 0) { showToast('还没有任何事项可保存', 'warn'); return; }
+        
             try {
                 showToast('保存中...', 'info', 1000);
-                const query = new AV.Query('EpaperConfig');
-                query.equalTo('deviceId', deviceId);
-                let configObj = await query.first();
-                if (configObj) {
-                    configObj.set('events', events);
+                // 查询是否已有该设备的记录
+                const queryResult = await collection.where({ deviceId }).get();
+        
+                if (queryResult.data.length > 0) {
+                    // 更新现有记录
+                    const recordId = queryResult.data[0]._id;
+                    await collection.doc(recordId).update({
+                        events: events
+                    });
                 } else {
-                    const ConfigClass = AV.Object.extend('EpaperConfig');
-                    configObj = new ConfigClass();
-                    configObj.set('deviceId', deviceId);
-                    configObj.set('events', events);
+                    // 创建新记录
+                    await collection.add({
+                        deviceId: deviceId,
+                        events: events
+                    });
                 }
-                await configObj.save();
-                // 保存成功后将此设备ID加入历史
                 addToHistory(deviceId);
-                showToast(`✅ 已同步到设备 ${deviceId}`);
+                showToast(` 已同步到设备 ${deviceId}`);
             } catch (error) {
                 console.error('保存失败', error);
-                showToast('❌ 保存失败，请检查网络', 'error');
+                showToast(' 保存失败，请检查网络', 'error');
             }
         }
-        saveBtn.addEventListener('click', saveToCloud);
 
         // 从云端加载指定设备的数据
         async function loadFromCloud(deviceId) {
             if (!deviceId) return;
             try {
-                const query = new AV.Query('EpaperConfig');
-                query.equalTo('deviceId', deviceId);
-                const result = await query.first();
-                if (result && result.get('events')) {
-                    events = result.get('events').map(ev => ({
+                const res = await collection.where({ deviceId }).get();
+                if (res.data.length > 0) {
+                    const record = res.data[0];
+                    // 确保每个事项都有 id，并为旧数据补充 id
+                    events = (record.events || []).map(ev => ({
                         ...ev,
                         id: ev.id || generateId()
                     }));
