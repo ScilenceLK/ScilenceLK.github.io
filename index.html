@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>墨水屏 · 多设备待办</title>
     <!-- LeanCloud 存储 SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@cloudbase/js-sdk@1.14.0/lib/cloudbase.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -430,10 +430,10 @@
 
     <script>
         // ---------- LeanCloud 初始化 ----------
-        const APP_ID = '你的AppID';
-        const APP_KEY = '你的AppKey';
-        const SERVER_URL = '你的ServerURL';   // 例如 https://your-app-id.avosapps.com
-        AV.init({ appId: APP_ID, appKey: APP_KEY, serverURL: SERVER_URL });
+        const ENV_ID = 'esp32s3display-9gtffouke534b767';
+        const app = cloudbase.init({ env: ENV_ID });
+        const db = app.database();
+        const collection = db.collection('epaper_config'); // 集合名
 
         // ---------- 全局变量 ----------
         let events = [];                // 当前显示的待办数组
