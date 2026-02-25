@@ -1,90 +1,569 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>墨水屏待办配置</title>
-    <!-- 使用 LeanCloud 存储 SDK (国际版 CDN) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>墨水屏 · 智能待办</title>
+    <!-- LeanCloud 存储 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
-        body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 0 20px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #07c; color: white; border: none; font-size: 16px; cursor: pointer; }
-        button:hover { background: #005fa3; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f4f7fb;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 1.5rem 1rem 2rem;
+        }
+        .container {
+            max-width: 680px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.01em;
+        }
+        .subhead {
+            color: #64748b;
+            font-size: 1rem;
+            margin-bottom: 1.75rem;
+            border-left: 4px solid #94a3b8;
+            padding-left: 1rem;
+        }
+        /* 卡片通用样式 */
+        .card {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(4px);
+            background: #ffffffdd;
+            border-radius: 28px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.02);
+            padding: 1.5rem 1.5rem;
+            margin-bottom: 1.8rem;
+            border: 1px solid #ffffff50;
+        }
+        /* 表单区域 */
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            align-items: flex-end;
+        }
+        .form-group {
+            flex: 1 1 160px;
+            min-width: 140px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            color: #475569;
+            margin-bottom: 0.25rem;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            background: white;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px #bfdbfe;
+        }
+        .priority-selector {
+            display: flex;
+            gap: 0.6rem;
+            background: #f1f5f9;
+            padding: 0.4rem;
+            border-radius: 40px;
+        }
+        .priority-selector input[type="radio"] {
+            display: none;
+        }
+        .priority-selector label {
+            flex: 1;
+            text-align: center;
+            padding: 0.4rem 0.2rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #334155;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .priority-selector input[type="radio"]:checked + label {
+            background: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+        .priority-selector label[for="pri-low"] { color: #16a34a; }
+        .priority-selector label[for="pri-medium"] { color: #ca8a04; }
+        .priority-selector label[for="pri-high"] { color: #dc2626; }
+
+        .btn-add {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 0.7rem 1.8rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 16px -4px #3b82f680;
+            transition: transform 0.1s, background 0.2s;
+            margin-left: auto;
+            height: fit-content;
+            white-space: nowrap;
+        }
+        .btn-add:hover {
+            background: #2563eb;
+            transform: scale(0.98);
+        }
+        /* 待办列表 */
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1.2rem;
+        }
+        .list-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .badge-count {
+            background: #cbd5e1;
+            color: #1e293b;
+            padding: 0.2rem 0.7rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .todo-item {
+            background: white;
+            border-radius: 24px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid #e9eef3;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            transition: box-shadow 0.2s;
+        }
+        .todo-item:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.04);
+        }
+        .priority-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+        .pri-low { background: #22c55e; box-shadow: 0 0 0 3px #bbf7d0; }
+        .pri-medium { background: #eab308; box-shadow: 0 0 0 3px #fef9c3; }
+        .pri-high { background: #ef4444; box-shadow: 0 0 0 3px #fee2e2; }
+        .todo-content {
+            flex: 1;
+        }
+        .todo-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: #0f172a;
+            margin-bottom: 0.25rem;
+        }
+        .todo-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #64748b;
+            align-items: center;
+        }
+        .todo-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0.2rem 0.5rem;
+            border-radius: 30px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .delete-btn:hover {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        /* 底部按钮组 */
+        .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+        .btn-secondary {
+            background: #e9eef3;
+            border: none;
+            border-radius: 40px;
+            padding: 0.8rem 1.8rem;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+        .btn-primary {
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 0.8rem 2.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px -6px #0f172a80;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-primary:hover {
+            background: #1e293b;
+            transform: scale(0.98);
+        }
+        /* Toast 样式 */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1e293bdd;
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 60px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            box-shadow: 0 15px 30px -10px black;
+            opacity: 0;
+            transition: transform 0.25s ease, opacity 0.2s;
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+            border: 1px solid #ffffff30;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            color: #94a3b8;
+            padding: 2rem 0;
+            font-style: italic;
+        }
+        hr {
+            border: none;
+            border-top: 2px dashed #d1d9e6;
+            margin: 1rem 0;
+        }
     </style>
 </head>
 <body>
-    <h2>墨水屏待办事项设置</h2>
-    <p>配置后，墨水屏设备将自动显示以下事项</p>
-    <input id="todo1" type="text" placeholder="事项 1 (例如：买牛奶)">
-    <input id="todo2" type="text" placeholder="事项 2 (例如：取快递)">
-    <button onclick="saveData()">保存并同步到屏幕</button>
+    <div class="container">
+        <h1>墨水屏·待办</h1>
+        <div class="subhead">为你的桌面墨水屏设置提醒</div>
+
+        <!-- 卡片：添加新事项 -->
+        <div class="card">
+            <div class="form-row">
+                <!-- 日期 -->
+                <div class="form-group">
+                    <label>📅 日期</label>
+                    <input type="date" id="eventDate" value="">
+                </div>
+                <!-- 时间 -->
+                <div class="form-group">
+                    <label>⏰ 时间</label>
+                    <input type="time" id="eventTime" value="09:00">
+                </div>
+                <!-- 事项描述 -->
+                <div class="form-group" style="flex: 2 1 200px;">
+                    <label>📝 描述</label>
+                    <input type="text" id="eventDesc" placeholder="写点什么..." maxlength="40">
+                </div>
+            </div>
+
+            <!-- 优先级（行内） -->
+            <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.2rem; flex-wrap: wrap;">
+                <div style="font-size:0.85rem; color:#475569;">优先级</div>
+                <div class="priority-selector" id="priorityGroup">
+                    <input type="radio" name="priority" id="pri-low" value="低">
+                    <label for="pri-low">低</label>
+                    <input type="radio" name="priority" id="pri-medium" value="中" checked>
+                    <label for="pri-medium">中</label>
+                    <input type="radio" name="priority" id="pri-high" value="高">
+                    <label for="pri-high">高</label>
+                </div>
+                <button class="btn-add" id="addBtn">+ 添加</button>
+            </div>
+        </div>
+
+        <!-- 卡片：待办列表 -->
+        <div class="card" style="padding-bottom: 1rem;">
+            <div class="list-header">
+                <h2>📋 当前待办</h2>
+                <span class="badge-count" id="itemCount">0</span>
+            </div>
+            <div id="todoList"></div>
+            <div id="emptyMsg" class="empty-state">暂无事项，添加一条吧 ✨</div>
+
+            <hr>
+            <!-- 操作按钮 -->
+            <div class="actions">
+                <button class="btn-secondary" id="clearBtn">清空所有</button>
+                <button class="btn-primary" id="saveBtn">保存到云端</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 容器 -->
+    <div id="toast"></div>
 
     <script>
-        // ========== 请替换为你的 LeanCloud 真实信息 ==========
+        // ---------- LeanCloud 初始化 ----------
         const APP_ID = '你的AppID';
         const APP_KEY = '你的AppKey';
-        const SERVER_URL = '你的ServerURL'; // 国际版格式：https://你的应用ID.avosapps.com
-        // =================================================
-
-        // 初始化 LeanCloud
+        const SERVER_URL = '你的ServerURL';   // 例如 https://your-app-id.avosapps.com
         AV.init({ appId: APP_ID, appKey: APP_KEY, serverURL: SERVER_URL });
 
-        // 定义一个固定的配置ID（用于区分不同设备，如果你只有一个墨水屏，固定即可）
+        // 固定配置ID (用于绑定此墨水屏设备)
         const CONFIG_ID = 'esp32_display_1';
 
-        // 页面加载时读取已有配置并填充输入框
-        window.addEventListener('load', async () => {
-            const query = new AV.Query('EpaperConfig');
-            query.equalTo('configId', CONFIG_ID);
-            try {
-                const result = await query.first(); // 获取第一条匹配的数据
-                if (result) {
-                    const content = result.get('content') || [];
-                    document.getElementById('todo1').value = content[0] || '';
-                    document.getElementById('todo2').value = content[1] || '';
-                } else {
-                    console.log('暂无配置，请输入事项后保存');
-                }
-            } catch (error) {
-                console.error('读取失败', error);
-                alert('读取失败，请检查网络或配置');
+        // ---------- 全局待办数组 ----------
+        let events = [];  // 每个元素: { id, date, time, desc, priority }
+
+        // ---------- DOM 元素 ----------
+        const dateInput = document.getElementById('eventDate');
+        const timeInput = document.getElementById('eventTime');
+        const descInput = document.getElementById('eventDesc');
+        const priorityRadios = document.querySelectorAll('input[name="priority"]');
+        const addBtn = document.getElementById('addBtn');
+        const todoListDiv = document.getElementById('todoList');
+        const emptyMsg = document.getElementById('emptyMsg');
+        const itemCountSpan = document.getElementById('itemCount');
+        const clearBtn = document.getElementById('clearBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const toastDiv = document.getElementById('toast');
+
+        // 设置默认日期为今天
+        function setDefaultDate() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+        setDefaultDate();
+
+        // ---------- 辅助函数 ----------
+        function getSelectedPriority() {
+            for (let radio of priorityRadios) {
+                if (radio.checked) return radio.value;
+            }
+            return '中'; // 默认
+        }
+
+        // 生成简单临时ID
+        function generateId() {
+            return Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        }
+
+        // 渲染待办列表
+        function renderList() {
+            if (events.length === 0) {
+                todoListDiv.innerHTML = '';
+                emptyMsg.style.display = 'block';
+                itemCountSpan.innerText = '0';
+                return;
+            }
+            emptyMsg.style.display = 'none';
+            let html = '';
+            events.forEach((ev, index) => {
+                const priClass = ev.priority === '低' ? 'pri-low' : (ev.priority === '中' ? 'pri-medium' : 'pri-high');
+                html += `
+                    <div class="todo-item" data-id="${ev.id}">
+                        <div class="priority-dot ${priClass}"></div>
+                        <div class="todo-content">
+                            <div class="todo-title">${escapeHtml(ev.desc)}</div>
+                            <div class="todo-meta">
+                                <span>📅 ${ev.date}</span>
+                                <span>⏰ ${ev.time}</span>
+                                <span>⚡ ${ev.priority}</span>
+                            </div>
+                        </div>
+                        <button class="delete-btn" onclick="deleteEvent('${ev.id}')">✕</button>
+                    </div>
+                `;
+            });
+            todoListDiv.innerHTML = html;
+            itemCountSpan.innerText = events.length;
+        }
+
+        // 简单转义防止XSS
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/[&<>"]/g, function(m) {
+                if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; if(m === '"') return '&quot;';
+                return m;
+            });
+        }
+
+        // 删除事件 (通过全局函数调用)
+        window.deleteEvent = function(id) {
+            events = events.filter(ev => ev.id !== id);
+            renderList();
+            showToast('事项已删除', 'info');
+        };
+
+        // 显示 Toast
+        function showToast(message, type = 'success', duration = 2000) {
+            toastDiv.innerText = message;
+            toastDiv.classList.add('show');
+            setTimeout(() => {
+                toastDiv.classList.remove('show');
+            }, duration);
+        }
+
+        // ---------- 添加事项 ----------
+        function addEvent() {
+            const date = dateInput.value;
+            const time = timeInput.value;
+            const desc = descInput.value.trim();
+            if (!date || !time || !desc) {
+                showToast('请完整填写日期、时间和描述', 'warn');
+                return;
+            }
+            const priority = getSelectedPriority();
+            const newEvent = {
+                id: generateId(),
+                date: date,
+                time: time,
+                desc: desc,
+                priority: priority
+            };
+            events.push(newEvent);
+            renderList();
+            // 清空描述框（保留日期时间默认值）
+            descInput.value = '';
+            // 重置优先级到中
+            document.getElementById('pri-medium').checked = true;
+            showToast('已添加到列表');
+        }
+
+        addBtn.addEventListener('click', addEvent);
+
+        // ---------- 清空所有 ----------
+        clearBtn.addEventListener('click', () => {
+            if (events.length === 0) return;
+            if (confirm('确定清空所有待办事项吗？')) {
+                events = [];
+                renderList();
+                showToast('已清空列表', 'info');
             }
         });
 
-        // 保存数据（若存在则更新，否则新建）
-        async function saveData() {
-            const todo1 = document.getElementById('todo1').value.trim();
-            const todo2 = document.getElementById('todo2').value.trim();
-            if (!todo1 && !todo2) {
-                alert('至少输入一个事项');
+        // ---------- 保存到 LeanCloud ----------
+        async function saveToCloud() {
+            if (events.length === 0) {
+                showToast('还没有任何事项可保存', 'warn');
                 return;
             }
-
-            const query = new AV.Query('EpaperConfig');
-            query.equalTo('configId', CONFIG_ID);
-            let configObject;
-            const result = await query.first();
-            if (result) {
-                configObject = result; // 存在则更新
-            } else {
-                const ConfigClass = AV.Object.extend('EpaperConfig');
-                configObject = new ConfigClass();
-                configObject.set('configId', CONFIG_ID); // 设置唯一标识
-            }
-            // 存储为数组，方便 ESP32 解析
-            configObject.set('content', [todo1, todo2]);
-            // 可选：记录更新时间
-            configObject.set('updatedAt', new Date().toISOString());
-
             try {
-                await configObject.save();
-                alert('保存成功！设备将在下次刷新时更新显示');
+                showToast('保存中...', 'info', 1000);
+                // 查找或创建配置对象
+                const query = new AV.Query('EpaperConfig');
+                query.equalTo('configId', CONFIG_ID);
+                let configObj = await query.first();
+
+                if (configObj) {
+                    // 更新
+                    configObj.set('events', events);
+                } else {
+                    const ConfigClass = AV.Object.extend('EpaperConfig');
+                    configObj = new ConfigClass();
+                    configObj.set('configId', CONFIG_ID);
+                    configObj.set('events', events);
+                }
+                // 可选：同时保留旧字段以备兼容
+                // 但新 ESP32 代码应优先读取 events 字段
+                await configObj.save();
+                showToast('✅ 已同步到云端');
             } catch (error) {
                 console.error('保存失败', error);
-                alert('保存失败，请重试');
+                showToast('❌ 保存失败，请检查网络', 'error');
             }
         }
+        saveBtn.addEventListener('click', saveToCloud);
+
+        // ---------- 加载已有数据 ----------
+        async function loadFromCloud() {
+            try {
+                const query = new AV.Query('EpaperConfig');
+                query.equalTo('configId', CONFIG_ID);
+                const result = await query.first();
+                if (result) {
+                    const savedEvents = result.get('events');
+                    if (Array.isArray(savedEvents) && savedEvents.length > 0) {
+                        // 确保每个事件都有id（旧数据可能没有）
+                        events = savedEvents.map(ev => ({
+                            ...ev,
+                            id: ev.id || generateId()
+                        }));
+                        renderList();
+                        showToast('已加载云端配置', 'info');
+                    } else {
+                        // 兼容旧版 content 字段？这里不处理，保持空列表
+                        events = [];
+                        renderList();
+                    }
+                } else {
+                    // 无数据，保持空
+                    events = [];
+                    renderList();
+                }
+            } catch (error) {
+                console.error('加载失败', error);
+                showToast('加载云端数据失败', 'error');
+            }
+        }
+
+        // 页面加载时读取
+        window.addEventListener('load', loadFromCloud);
+
+        // 按回车快速添加（可选）
+        descInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addEvent();
+        });
     </script>
 </body>
 </html>
